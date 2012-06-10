@@ -44,6 +44,59 @@ void fillImageBuffer(CGImageRef cgImage, UIImageOrientation imageOrientation, in
     return matGray;
 }
 
+// create a UIImage object with normalized orientation
+- (UIImage*)normalizedOrientationImage {
+    CGAffineTransform transform = CGAffineTransformIdentity;
+    int cols = CGImageGetWidth(self.CGImage);
+    int rows = CGImageGetHeight(self.CGImage);
+    CGSize size;
+    
+    switch (self.imageOrientation) {
+        case UIImageOrientationUp:      // default orientation
+            return self;
+            break;
+        case UIImageOrientationDown:    // 180 deg rotation            
+            transform = CGAffineTransformMake(-1, 0, 0, -1, cols, rows);
+            size = CGSizeMake(cols, rows);
+            break;
+        case UIImageOrientationLeft:          // 90 deg CCW
+            transform = CGAffineTransformMake(0, 1, -1, 0, rows, 0);
+            size = CGSizeMake(rows, cols);
+            break;
+        case UIImageOrientationRight:         // 90 deg CW
+            transform = CGAffineTransformMake(0, -1, 1, 0, 0, cols);
+            size = CGSizeMake(rows, cols);
+            break;
+        case UIImageOrientationUpMirrored:    // as above but image mirrored along other axis. horizontal flip
+            transform = CGAffineTransformMake(-1.0, 0, 0, 1.0, cols, 0);
+            size = CGSizeMake(cols, rows);
+            break;
+        case UIImageOrientationDownMirrored:  // horizontal flip
+            transform = CGAffineTransformMake(1.0, 0, 0, -1.0, 0, rows);
+            size = CGSizeMake(cols, rows);
+            break;
+        case UIImageOrientationLeftMirrored:  // vertical flip
+            transform = CGAffineTransformMake(0, 1.0, 1.0, 0, 0, 0);
+            size = CGSizeMake(rows, cols);
+            break;
+        case UIImageOrientationRightMirrored: // vertical flip
+            transform = CGAffineTransformMake(0, -1.0, -1.0, 0, rows, cols);
+            size = CGSizeMake(rows, cols);
+            break;
+        default:
+            break;
+    }
+    
+    UIGraphicsBeginImageContext(size);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGContextConcatCTM(context, transform);
+    CGContextDrawImage(context, CGRectMake(0, 0, cols, rows), self.CGImage);
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    
+    return image;
+}
+
 # pragma mark -- class methods
 // create a UIImage object with copied data from a cv::Mat object
 + (id)imageWithMat:(const cv::Mat&)mat {
@@ -78,6 +131,11 @@ void fillImageBuffer(CGImageRef cgImage, UIImageOrientation imageOrientation, in
 + (id)imageWithIplImage:(const IplImageRef)iplImage {
     cv::Mat mat = iplImage;
     return [UIImage imageWithMat:mat];
+}
+
+// create a UIImage object with normalized orientation
++ (id)normalizedOrientationImage:(UIImage*)image {
+    return [image normalizedOrientationImage];
 }
 
 @end

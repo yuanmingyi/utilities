@@ -31,11 +31,17 @@ typedef enum {
 // return a cv::Mat gray (8bit, 1channel) image with copied data
 - (cv::Mat)matGray;
 
+// create a UIImage object with normalized orientation; used in main thread
+- (UIImage*)normalizedOrientationImage;
+
 // create a UIImage object with copied data from a cv::Mat object
 + (id)imageWithMat:(const cv::Mat&)mat;
 
 // create a UIImage object with copied data from an IplImage structure
 + (id)imageWithIplImage:(const IplImageRef)iplImage;
+
+// create a UIImage object with normalized orientation; used in main thread
++ (id)normalizedOrientationImage:(UIImage*)image;
 
 @end
 
