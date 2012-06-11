@@ -55,31 +55,38 @@ void fillImageBuffer(CGImageRef cgImage, UIImageOrientation imageOrientation, in
         case UIImageOrientationUp:      // default orientation
             return self;
             break;
-        case UIImageOrientationDown:    // 180 deg rotation            
+        case UIImageOrientationDown:    // 180 deg rotation   
+            //transform = CGAffineTransformMake(-1.0, 0, 0, 1.0, cols, 0);
             transform = CGAffineTransformMake(-1, 0, 0, -1, cols, rows);
             size = CGSizeMake(cols, rows);
             break;
         case UIImageOrientationLeft:          // 90 deg CCW
+            //transform = CGAffineTransformMake(0, -1.0, -1.0, 0, rows, cols);
             transform = CGAffineTransformMake(0, 1, -1, 0, rows, 0);
             size = CGSizeMake(rows, cols);
             break;
         case UIImageOrientationRight:         // 90 deg CW
-            transform = CGAffineTransformMake(0, -1, 1, 0, 0, cols);
+            //transform = CGAffineTransformMake(0, 1.0, 1.0, 0, 0, 0);
+            transform = CGAffineTransformMake(0, -1, 1, 0, 0, cols);            
             size = CGSizeMake(rows, cols);
             break;
         case UIImageOrientationUpMirrored:    // as above but image mirrored along other axis. horizontal flip
+            //transform = CGAffineTransformMake(-1, 0, 0, -1, cols, rows);
             transform = CGAffineTransformMake(-1.0, 0, 0, 1.0, cols, 0);
             size = CGSizeMake(cols, rows);
             break;
         case UIImageOrientationDownMirrored:  // horizontal flip
+            //IdentityMatrix
             transform = CGAffineTransformMake(1.0, 0, 0, -1.0, 0, rows);
             size = CGSizeMake(cols, rows);
             break;
         case UIImageOrientationLeftMirrored:  // vertical flip
+            //transform = CGAffineTransformMake(0, -1, 1, 0, 0, cols);
             transform = CGAffineTransformMake(0, 1.0, 1.0, 0, 0, 0);
             size = CGSizeMake(rows, cols);
             break;
         case UIImageOrientationRightMirrored: // vertical flip
+            //transform = CGAffineTransformMake(0, 1, -1, 0, rows, 0);
             transform = CGAffineTransformMake(0, -1.0, -1.0, 0, rows, cols);
             size = CGSizeMake(rows, cols);
             break;
@@ -87,12 +94,19 @@ void fillImageBuffer(CGImageRef cgImage, UIImageOrientation imageOrientation, in
             break;
     }
     
-    UIGraphicsBeginImageContext(size);
-    CGContextRef context = UIGraphicsGetCurrentContext();
+//    UIGraphicsBeginImageContext(size);
+//    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(NULL, size.width, size.height, 8, 0, space, kCGImageAlphaPremultipliedLast);
     CGContextConcatCTM(context, transform);
     CGContextDrawImage(context, CGRectMake(0, 0, cols, rows), self.CGImage);
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+    CGImageRef normalizedImage = CGBitmapContextCreateImage(context);
+    UIImage *image = [UIImage imageWithCGImage:normalizedImage];
+    CGImageRelease(normalizedImage);
+    CGContextRelease(context);
+    CGColorSpaceRelease(space);
+//    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+//    UIGraphicsEndImageContext();
     
     return image;
 }
@@ -225,4 +239,70 @@ IplImageRef iplImageCreateWithUIImage(UIImage *image, IplImageType type) {
 
 void iplImageRelease(IplImageRef image) {
     cvReleaseImage(&image);
+}
+
+// make sure the cgimage has RGB color space and alpha component premultiplied last
+cv::Mat CGImageCreateMat(CGImageRef image, IplImageType type) {
+    CGDataProviderRef provider = CGImageGetDataProvider(image);
+    CFDataRef dataRef = CGDataProviderCopyData(provider);
+    int cols = CGImageGetWidth(image);
+    int rows = CGImageGetHeight(image);
+    int steps = CGImageGetBytesPerRow(image);
+//    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image);
+//    assert(alpha == kCGImageAlphaPremultipliedLast);
+//    CGColorSpaceRef space = CGImageGetColorSpace(image);
+//    assert(CGColorSpaceGetModel(space)==kCGColorSpaceModelRGB);
+        
+    cv::Mat mat(rows, cols, CV_8UC4, const_cast<UInt8*>(CFDataGetBytePtr(dataRef)), steps);
+    cv::Mat retMat;
+    switch (type) {
+        case IplImageTypeBGR:
+            cv::cvtColor(mat, retMat, CV_RGBA2BGR);
+            break;
+        case IplImageTypeGray:
+            cv::cvtColor(mat, retMat, CV_RGBA2GRAY);
+            break;
+        case IplImageTypeRGBA:
+            retMat = mat.clone();
+            break;
+        default:
+            break;
+    }
+    CFRelease(dataRef);
+    return retMat;
+}
+
+// make sure the cgimage has RGB color space and alpha component premultiplied last
+IplImageRef CGImageCreateIplImage(CGImageRef image, IplImageType type) {
+    CGDataProviderRef provider = CGImageGetDataProvider(image);
+    CFDataRef dataRef = CGDataProviderCopyData(provider);
+    int cols = CGImageGetWidth(image);
+    int rows = CGImageGetHeight(image);
+    int steps = CGImageGetBytesPerRow(image);
+    //    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image);
+    //    assert(alpha == kCGImageAlphaPremultipliedLast);
+    //    CGColorSpaceRef space = CGImageGetColorSpace(image);
+    //    assert(CGColorSpaceGetModel(space)==kCGColorSpaceModelRGB);
+    
+    IplImage *iplImage = cvCreateImageHeader(cvSize(cols, rows), IPL_DEPTH_8U, 4);
+    cvSetData(iplImage, const_cast<UInt8*>(CFDataGetBytePtr(dataRef)), steps);
+    IplImage *retImage = 0;
+    switch (type) {
+        case IplImageTypeBGR:
+            retImage = cvCreateImage(cvSize(cols, rows), IPL_DEPTH_8U, 3);
+            cvCvtColor(iplImage, retImage, CV_RGBA2BGR);
+            break;
+        case IplImageTypeGray:
+            retImage = cvCreateImage(cvSize(cols, rows), IPL_DEPTH_8U, 1);
+            cvCvtColor(iplImage, retImage, CV_RGBA2GRAY);
+            break;
+        case IplImageTypeRGBA:
+            retImage = cvCloneImage(iplImage);
+            break;
+        default:
+            break;
+    }
+    cvReleaseImageHeader(&iplImage);
+    CFRelease(dataRef);
+    return retImage;    
 }

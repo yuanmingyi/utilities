@@ -31,7 +31,7 @@ typedef enum {
 // return a cv::Mat gray (8bit, 1channel) image with copied data
 - (cv::Mat)matGray;
 
-// create a UIImage object with normalized orientation; used in main thread
+// create a UIImage object with normalized orientation
 - (UIImage*)normalizedOrientationImage;
 
 // create a UIImage object with copied data from a cv::Mat object
@@ -40,7 +40,7 @@ typedef enum {
 // create a UIImage object with copied data from an IplImage structure
 + (id)imageWithIplImage:(const IplImageRef)iplImage;
 
-// create a UIImage object with normalized orientation; used in main thread
+// create a UIImage object with normalized orientation
 + (id)normalizedOrientationImage:(UIImage*)image;
 
 @end
@@ -52,3 +52,11 @@ IplImageRef iplImageWithUIImage(UIImage *image, IplImageType type);
 
 // release an IplImageRef object
 void iplImageRelease(IplImageRef iplImage);
+
+// return a cv::Mat object with copied data in indicated format (RGBA) of CGImage
+// make sure the cgimage has RGB color space and alpha component premultiplied last
+cv::Mat CGImageCreateMat(CGImageRef image, IplImageType type);
+
+// create an IplImageRef object with data in CGImage and indicated image type
+// make sure the cgimage has RGB color space and alpha component premultiplied last
+IplImageRef CGImageCreateIplImage(CGImageRef image, IplImageType type);
